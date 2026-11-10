@@ -26,4 +26,6 @@ frontend/.env
 */.env
 backend/.venv
 backend/uv.lock
-backend/__pycache__/
+backend/__pycache__/backend/*.db
+backend/**/__pycache__/
+backend/.pytest_cache/
