@@ -2,7 +2,7 @@ import { Routes, Route, Link, NavLink, Navigate, useLocation } from 'react-route
 import { useAuth } from './lib/auth.jsx'
 import Home from './pages/Home.jsx'
 import RouteDetail from './pages/RouteDetail.jsx'
-import NewRoute from './pages/NewRoute.jsx'
+import RouteForm from './pages/RouteForm.jsx'
 import AuthPage from './pages/AuthPage.jsx'
 import Profile from './pages/Profile.jsx'
 
@@ -43,7 +43,8 @@ export default function App() {
             <main>
                 <Routes>
                     <Route path="/" element={<Home />} />
-                    <Route path="/routes/new" element={<RequireAuth><NewRoute /></RequireAuth>} />
+                    <Route path="/routes/new" element={<RequireAuth><RouteForm /></RequireAuth>} />
+                    <Route path="/routes/:id/edit" element={<RequireAuth><RouteForm /></RequireAuth>} />
                     <Route path="/routes/:id" element={<RouteDetail />} />
                     <Route path="/auth" element={<AuthPage />} />
                     <Route path="/profile" element={<RequireAuth><Profile /></RequireAuth>} />
