@@ -22,6 +22,8 @@ def make_engine(url: str) -> Engine:
 
 
 def init_db(engine: Engine) -> None:
+    import models  # noqa: F401  (registers tables on SQLModel.metadata)
+
     SQLModel.metadata.create_all(engine)
 
 

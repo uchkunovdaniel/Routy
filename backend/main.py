@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from db import database_url, init_db, make_engine
+from seed import seed_if_empty
 
 
 def create_app(db_url: str | None = None) -> FastAPI:
@@ -11,6 +12,7 @@ def create_app(db_url: str | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         init_db(engine)
+        seed_if_empty(engine)
         yield
         engine.dispose()
 
