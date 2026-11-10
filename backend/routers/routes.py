@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -5,7 +6,9 @@ from sqlmodel import Session, col, select
 
 from db import get_session
 from models import Route
-from schemas import RouteOut
+from routers.auth import CurrentUser
+from sanitize import clean, safe_image, valid_coords
+from schemas import RouteIn, RouteOut
 from services import decorate
 
 router = APIRouter(prefix="/api/routes", tags=["routes"])
@@ -13,6 +16,14 @@ router = APIRouter(prefix="/api/routes", tags=["routes"])
 SessionDep = Annotated[Session, Depends(get_session)]
 
 MSG_ROUTE_NOT_FOUND = "Маршрутът не съществува."
+MSG_TOO_FEW_POINTS = "Добавете поне две точки от маршрута на картата."
+MSG_TITLE_REQUIRED = "Заглавието и дестинацията са задължителни."
+MAX_PHOTOS = 6
+
+
+def today() -> str:
+    # Same as the mock's new Date().toISOString().slice(0, 10) (UTC date).
+    return datetime.now(UTC).date().isoformat()
 
 
 def _get_route_or_404(session: Session, route_id: str) -> Route:
@@ -45,3 +56,35 @@ def list_routes(session: SessionDep, q: str = "", sort: str = "new", author: str
 @router.get("/{route_id}", response_model=RouteOut)
 def get_route(route_id: str, session: SessionDep):
     return decorate(session, _get_route_or_404(session, route_id))
+
+
+@router.post("", response_model=RouteOut, status_code=status.HTTP_201_CREATED)
+def create_route(body: RouteIn, user: CurrentUser, session: SessionDep):
+    """Port of createRoute(). Checks run in the same order as the mock."""
+    points = [p for p in body.waypoints if isinstance(p, dict) and valid_coords(p.get("lat"), p.get("lng"))]
+    waypoints = [
+        {"name": clean(p.get("name"), 80) or f"Точка {i + 1}", "lat": p["lat"], "lng": p["lng"]}
+        for i, p in enumerate(points)
+    ]
+    if len(waypoints) < 2:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, MSG_TOO_FEW_POINTS)
+
+    title = clean(body.title, 120)
+    destination = clean(body.destination, 120)
+    if not title or not destination:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, MSG_TITLE_REQUIRED)
+
+    route = Route(
+        author_id=user.id,
+        title=title,
+        destination=destination,
+        waypoints=waypoints,
+        impressions=clean(body.impressions, 4000),
+        tips=clean(body.tips, 2000),
+        photos=[p for p in map(safe_image, body.photos) if p][:MAX_PHOTOS],
+        created_at=today(),
+    )
+    session.add(route)
+    session.commit()
+    session.refresh(route)
+    return decorate(session, route)
