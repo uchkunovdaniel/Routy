@@ -1,12 +1,10 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../lib/api.js'
-import { useAuth } from '../lib/auth.jsx'
 import { fileToDataUrl } from '../lib/image.js'
 import MapView from '../components/MapView.jsx'
 
 export default function NewRoute() {
-  const { user } = useAuth()
   const nav = useNavigate()
   const [f, setF] = useState({ title: '', destination: '', impressions: '', tips: '' })
   const [points, setPoints] = useState([])
@@ -32,7 +30,7 @@ export default function NewRoute() {
     e.preventDefault()
     setError(''); setBusy(true)
     try {
-      const r = await api.createRoute({ ...f, waypoints: points, photos }, user)
+      const r = await api.createRoute({ ...f, waypoints: points, photos })
       nav(`/routes/${r.id}`)
     } catch (err) { setError(err.message); setBusy(false) }
   }

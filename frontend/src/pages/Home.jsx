@@ -9,8 +9,15 @@ export default function Home() {
   const [q, setQ] = useState('')
   const [sort, setSort] = useState('new')
   const [routes, setRoutes] = useState(null)
+  const [error, setError] = useState('')
 
-  useEffect(() => { api.listRoutes({ q, sort }).then(setRoutes) }, [q, sort])
+  useEffect(() => {
+    let stale = false // ignore responses that arrive after a newer search
+    api.listRoutes({ q, sort })
+      .then((list) => { if (!stale) { setRoutes(list); setError('') } })
+      .catch((err) => { if (!stale) { setRoutes([]); setError(err.message) } })
+    return () => { stale = true }
+  }, [q, sort])
 
   return (
     <>
@@ -34,7 +41,8 @@ export default function Home() {
             <option value="top">Най-високо оценени</option>
           </select>
         </div>
-        {routes === null ? <p className="empty">Зареждане…</p>
+        {error ? <p className="error" role="alert">{error}</p>
+          : routes === null ? <p className="empty">Зареждане…</p>
           : routes.length === 0 ? <p className="empty">Няма маршрути за „{q}“. Опитайте с друга дестинация или публикувайте първия.</p>
           : <div className="grid">{routes.map((r) => <RouteCard key={r.id} route={r} />)}</div>}
       </section>

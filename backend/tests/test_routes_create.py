@@ -7,9 +7,13 @@ POINTS = [{"name": "Старт", "lat": 42.1, "lng": 23.1}, {"name": "Край",
 
 
 @pytest.fixture
-def auth(client):
-    token = client.post("/api/auth/login", json={"email": "georgi@example.com", "password": "demo1234"}).json()["token"]
-    return {"Authorization": f"Bearer {token}"}
+def author(make_user):
+    return make_user("Борис")
+
+
+@pytest.fixture
+def auth(author):
+    return author.headers
 
 
 def create(client, auth, **overrides):
@@ -18,11 +22,11 @@ def create(client, auth, **overrides):
     return client.post("/api/routes", json=body, headers=auth)
 
 
-def test_create_route(client, auth):
+def test_create_route(client, auth, author):
     r = create(client, auth)
     assert r.status_code == 201
     data = r.json()
-    assert data["authorId"] == "u2" and data["author"] == "Георги"
+    assert data["authorId"] == author.id and data["author"] == "Борис"
     assert data["title"] == "Мусала" and data["destination"] == "Рила"
     assert data["impressions"] == "Супер" and data["tips"] == "Вода"
     assert data["waypoints"] == POINTS
@@ -31,11 +35,11 @@ def test_create_route(client, auth):
     assert len(data["id"]) == 8
 
 
-def test_created_route_is_listed_first_and_fetchable(client, auth):
+def test_created_route_is_listed_first_and_fetchable(client, auth, author):
     rid = create(client, auth).json()["id"]
     assert client.get("/api/routes").json()[0]["id"] == rid
     assert client.get(f"/api/routes/{rid}").json()["title"] == "Мусала"
-    assert rid in [r["id"] for r in client.get("/api/routes", params={"author": "u2"}).json()]
+    assert rid in [r["id"] for r in client.get("/api/routes", params={"author": author.id}).json()]
 
 
 def test_create_requires_auth(client):

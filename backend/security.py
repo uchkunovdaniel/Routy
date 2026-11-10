@@ -1,6 +1,5 @@
 import os
 from datetime import UTC, datetime, timedelta
-from functools import cache
 
 import jwt
 from pwdlib import PasswordHash
@@ -14,12 +13,6 @@ def hash_password(password: str) -> str:
 
 def verify_password(password: str, password_hash: str) -> bool:
     return _hasher.verify(password, password_hash)
-
-
-@cache
-def demo_password_hash() -> str:
-    """Seed users share the demo password; hash it once per process."""
-    return hash_password("demo1234")
 
 
 # --- tokens ---------------------------------------------------------------

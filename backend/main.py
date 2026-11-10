@@ -6,7 +6,6 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from db import database_url, init_db, make_engine
 from routers import auth, routes
-from seed import seed_if_empty
 
 
 def cors_origins() -> list[str]:
@@ -21,7 +20,6 @@ def create_app(db_url: str | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         init_db(engine)
-        seed_if_empty(engine)
         yield
         engine.dispose()
 
