@@ -114,6 +114,15 @@ def update_route(route_id: str, body: RouteIn, user: CurrentUser, session: Sessi
     return decorate(session, route)
 
 
+@router.delete("/{route_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_route(route_id: str, user: CurrentUser, session: SessionDep) -> None:
+    route = _own_route_or_403(session, route_id, user)
+    for review in session.exec(select(Review).where(Review.route_id == route.id)).all():
+        session.delete(review)
+    session.delete(route)
+    session.commit()
+
+
 def js_round(x: float) -> int:
     """JS Math.round: halves round up (2.5 -> 3, -2.5 -> -2), unlike Python's banker's rounding."""
     return math.floor(x + 0.5)
