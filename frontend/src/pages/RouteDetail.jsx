@@ -12,9 +12,14 @@ export default function RouteDetail() {
   const [rating, setRating] = useState(0)
   const [text, setText] = useState('')
   const [error, setError] = useState('')
+  const [loadError, setLoadError] = useState('')
 
-  useEffect(() => { api.getRoute(id).then(setRoute) }, [id])
+  useEffect(() => {
+    setRoute(undefined); setLoadError('')
+    api.getRoute(id).then(setRoute).catch((err) => setLoadError(err.message))
+  }, [id])
 
+  if (loadError) return <p className="error wrap" role="alert">{loadError}</p>
   if (route === undefined) return <p className="empty">Зареждане…</p>
   if (route === null) return <p className="empty">Маршрутът не е намерен. <Link to="/">Към маршрутите</Link></p>
 
@@ -25,7 +30,7 @@ export default function RouteDetail() {
     setError('')
     if (!rating) return setError('Изберете оценка от 1 до 5 звезди.')
     try {
-      setRoute(await api.addReview(id, { rating, text }, user))
+      setRoute(await api.addReview(id, { rating, text }))
       setText(''); setRating(0)
     } catch (err) { setError(err.message) }
   }
