@@ -31,7 +31,6 @@ export default function AuthPage() {
       <label>Парола<input type="password" value={f.password} onChange={set('password')} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} minLength={6} required /></label>
       {error && <p className="error" role="alert">{error}</p>}
       <button className="btn btn-dark">{mode === 'login' ? 'Вход' : 'Създай акаунт'}</button>
-      {mode === 'login' && <p className="muted small">Демо: maria@example.com / demo1234</p>}
     </form>
   )
 }
