@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from db import database_url, init_db, make_engine
+from routers import auth
 from seed import seed_if_empty
 
 
@@ -18,6 +19,7 @@ def create_app(db_url: str | None = None) -> FastAPI:
 
     app = FastAPI(title="Routy API", lifespan=lifespan)
     app.state.engine = engine
+    app.include_router(auth.router)
 
     @app.get("/")
     async def root():
