@@ -18,7 +18,7 @@ function Header() {
         <header className="site-header">
             <Link to="/" className="brand" aria-label="Пътеки – начало">
                 <span className="blaze" aria-hidden="true" />
-                Пътеки
+                Routy
             </Link>
             <nav>
                 <NavLink to="/" end>Маршрути</NavLink>
