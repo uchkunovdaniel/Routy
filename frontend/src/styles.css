@@ -719,3 +719,21 @@ label {
     scroll-behavior: auto !important;
   }
 }
+
+/* route owner actions + form footer */
+.owner-actions,
+.form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .6rem;
+}
+
+.owner-actions {
+  margin-bottom: 1.4rem;
+}
+
+.owner-actions .error {
+  flex-basis: 100%;
+  margin: 0;
+}
