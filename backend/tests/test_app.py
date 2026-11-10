@@ -30,3 +30,17 @@ def test_openapi_lists_every_endpoint(client):
     assert set(paths["/api/routes"]) == {"get", "post"}
     assert set(paths["/api/routes/{route_id}"]) == {"get", "put", "delete"}
     assert set(paths["/api/routes/{route_id}/reviews"]) == {"post"}
+
+
+def test_cors_preflight_allows_edit_and_delete(client):
+    for method in ("PUT", "DELETE"):
+        r = client.options(
+            "/api/routes/r1",
+            headers={
+                "Origin": "http://localhost:5173",
+                "Access-Control-Request-Method": method,
+                "Access-Control-Request-Headers": "authorization,content-type",
+            },
+        )
+        assert r.status_code == 200, method
+        assert method in r.headers["access-control-allow-methods"]
