@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session, col, select
 
 from db import get_session
-from models import Review, Route
+from models import Review, Route, User
 from routers.auth import CurrentUser
 from sanitize import clean, safe_image, valid_coords
 from schemas import ReviewIn, RouteIn, RouteOut
@@ -21,6 +21,7 @@ MSG_TOO_FEW_POINTS = "Добавете поне две точки от марш�
 MSG_TITLE_REQUIRED = "Заглавието и дестинацията са задължителни."
 MSG_OWN_ROUTE = "Не можете да оценявате собствен маршрут."
 MSG_EMPTY_REVIEW = "Напишете няколко думи в отзива."
+MSG_NOT_OWNER = "Можете да променяте само собствените си маршрути."
 MAX_PHOTOS = 6
 
 
@@ -61,9 +62,8 @@ def get_route(route_id: str, session: SessionDep):
     return decorate(session, _get_route_or_404(session, route_id))
 
 
-@router.post("", response_model=RouteOut, status_code=status.HTTP_201_CREATED)
-def create_route(body: RouteIn, user: CurrentUser, session: SessionDep):
-    """Port of createRoute(). Checks run in the same order as the mock."""
+def _validated_fields(body: RouteIn) -> dict:
+    """Port of createRoute()'s validation, shared by create and edit. Same check order as the mock."""
     points = [p for p in body.waypoints if isinstance(p, dict) and valid_coords(p.get("lat"), p.get("lng"))]
     waypoints = [
         {"name": clean(p.get("name"), 80) or f"Точка {i + 1}", "lat": p["lat"], "lng": p["lng"]}
@@ -77,16 +77,37 @@ def create_route(body: RouteIn, user: CurrentUser, session: SessionDep):
     if not title or not destination:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, MSG_TITLE_REQUIRED)
 
-    route = Route(
-        author_id=user.id,
-        title=title,
-        destination=destination,
-        waypoints=waypoints,
-        impressions=clean(body.impressions, 4000),
-        tips=clean(body.tips, 2000),
-        photos=[p for p in map(safe_image, body.photos) if p][:MAX_PHOTOS],
-        created_at=today(),
-    )
+    return {
+        "title": title,
+        "destination": destination,
+        "waypoints": waypoints,
+        "impressions": clean(body.impressions, 4000),
+        "tips": clean(body.tips, 2000),
+        "photos": [p for p in map(safe_image, body.photos) if p][:MAX_PHOTOS],
+    }
+
+
+@router.post("", response_model=RouteOut, status_code=status.HTTP_201_CREATED)
+def create_route(body: RouteIn, user: CurrentUser, session: SessionDep):
+    route = Route(author_id=user.id, created_at=today(), **_validated_fields(body))
+    session.add(route)
+    session.commit()
+    session.refresh(route)
+    return decorate(session, route)
+
+def _own_route_or_403(session: Session, route_id: str, user: User) -> Route:
+    route = _get_route_or_404(session, route_id)
+    if route.author_id != user.id:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, MSG_NOT_OWNER)
+    return route
+
+
+@router.put("/{route_id}", response_model=RouteOut)
+def update_route(route_id: str, body: RouteIn, user: CurrentUser, session: SessionDep):
+    """Full replace of the editable fields. Author, createdAt and reviews are kept."""
+    route = _own_route_or_403(session, route_id, user)
+    for field, value in _validated_fields(body).items():
+        setattr(route, field, value)
     session.add(route)
     session.commit()
     session.refresh(route)

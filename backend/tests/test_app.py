@@ -28,5 +28,5 @@ def test_openapi_lists_every_endpoint(client):
     assert set(paths["/api/auth/login"]) == {"post"}
     assert set(paths["/api/auth/me"]) == {"get"}
     assert set(paths["/api/routes"]) == {"get", "post"}
-    assert set(paths["/api/routes/{route_id}"]) == {"get"}
+    assert set(paths["/api/routes/{route_id}"]) == {"get", "put"}
     assert set(paths["/api/routes/{route_id}/reviews"]) == {"post"}
