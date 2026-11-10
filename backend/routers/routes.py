@@ -1,3 +1,4 @@
+import math
 from datetime import UTC, datetime
 from typing import Annotated
 
@@ -5,10 +6,10 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session, col, select
 
 from db import get_session
-from models import Route
+from models import Review, Route
 from routers.auth import CurrentUser
 from sanitize import clean, safe_image, valid_coords
-from schemas import RouteIn, RouteOut
+from schemas import ReviewIn, RouteIn, RouteOut
 from services import decorate
 
 router = APIRouter(prefix="/api/routes", tags=["routes"])
@@ -18,6 +19,8 @@ SessionDep = Annotated[Session, Depends(get_session)]
 MSG_ROUTE_NOT_FOUND = "Маршрутът не съществува."
 MSG_TOO_FEW_POINTS = "Добавете поне две точки от маршрута на картата."
 MSG_TITLE_REQUIRED = "Заглавието и дестинацията са задължителни."
+MSG_OWN_ROUTE = "Не можете да оценявате собствен маршрут."
+MSG_EMPTY_REVIEW = "Напишете няколко думи в отзива."
 MAX_PHOTOS = 6
 
 
@@ -87,4 +90,32 @@ def create_route(body: RouteIn, user: CurrentUser, session: SessionDep):
     session.add(route)
     session.commit()
     session.refresh(route)
+    return decorate(session, route)
+
+
+def js_round(x: float) -> int:
+    """JS Math.round: halves round up (2.5 -> 3, -2.5 -> -2), unlike Python's banker's rounding."""
+    return math.floor(x + 0.5)
+
+
+@router.post("/{route_id}/reviews", response_model=RouteOut)
+def add_review(route_id: str, body: ReviewIn, user: CurrentUser, session: SessionDep):
+    """Port of addReview(): one review per user per route, the newest replaces the old one."""
+    route = _get_route_or_404(session, route_id)
+    if route.author_id == user.id:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, MSG_OWN_ROUTE)
+    text = clean(body.text, 1000)
+    if not text:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, MSG_EMPTY_REVIEW)
+    stars = min(5, max(1, js_round(body.rating)))
+
+    for old in session.exec(
+        select(Review).where(Review.route_id == route.id, Review.user_id == user.id)
+    ).all():
+        session.delete(old)
+    session.add(Review(
+        route_id=route.id, user_id=user.id, user_name=user.name,
+        rating=stars, text=text, created_at=today(),
+    ))
+    session.commit()
     return decorate(session, route)
