@@ -1,4 +1,4 @@
-import { Routes, Route, Link, NavLink, Navigate, useLocation } from 'react-router-dom'
+import { Routes, Route, Link, NavLink, Navigate, useLocation, useParams } from 'react-router-dom'
 import { useAuth } from './lib/auth.jsx'
 import Home from './pages/Home.jsx'
 import RouteDetail from './pages/RouteDetail.jsx'
@@ -10,6 +10,12 @@ function RequireAuth({ children }) {
     const { user } = useAuth()
     const loc = useLocation()
     return user ? children : <Navigate to="/auth" state={{ from: loc.pathname }} replace />
+}
+
+// Key the form by route so switching new <-> edit (or between routes) starts with fresh state.
+function EditRoute() {
+    const { id } = useParams()
+    return <RouteForm key={id} />
 }
 
 function Header() {
@@ -43,8 +49,8 @@ export default function App() {
             <main>
                 <Routes>
                     <Route path="/" element={<Home />} />
-                    <Route path="/routes/new" element={<RequireAuth><RouteForm /></RequireAuth>} />
-                    <Route path="/routes/:id/edit" element={<RequireAuth><RouteForm /></RequireAuth>} />
+                    <Route path="/routes/new" element={<RequireAuth><RouteForm key="new" /></RequireAuth>} />
+                    <Route path="/routes/:id/edit" element={<RequireAuth><EditRoute /></RequireAuth>} />
                     <Route path="/routes/:id" element={<RouteDetail />} />
                     <Route path="/auth" element={<AuthPage />} />
                     <Route path="/profile" element={<RequireAuth><Profile /></RequireAuth>} />
