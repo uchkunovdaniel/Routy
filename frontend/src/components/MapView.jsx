@@ -3,11 +3,13 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 
 // Pass onAdd(lat, lng) to make the map clickable (used when publishing a route).
-export default function MapView({ points, onAdd, height = 380 }) {
+// fitOnLoad: on a clickable map, zoom to the first set of points once (used when editing a route).
+export default function MapView({ points, onAdd, height = 380, fitOnLoad = false }) {
   const el = useRef(null)
   const map = useRef(null)
   const layer = useRef(null)
   const onAddRef = useRef(onAdd)
+  const fitted = useRef(false)
   onAddRef.current = onAdd
 
   useEffect(() => {
@@ -15,6 +17,7 @@ export default function MapView({ points, onAdd, height = 380 }) {
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap', maxZoom: 18 }).addTo(m)
     layer.current = L.layerGroup().addTo(m)
     map.current = m
+    fitted.current = false // a new map (e.g. StrictMode remount) has not been fitted yet
     m.on('click', (e) => onAddRef.current?.(+e.latlng.lat.toFixed(6), +e.latlng.lng.toFixed(6)))
     return () => m.remove()
   }, [])
@@ -30,8 +33,11 @@ export default function MapView({ points, onAdd, height = 380 }) {
       L.marker([p.lat, p.lng], { icon: L.divIcon({ className: 'pin', html: `<span>${i + 1}</span>`, iconSize: [26, 26] }) })
         .bindTooltip(tip).addTo(layer.current)
     })
-    if (ll.length && !onAddRef.current) map.current.fitBounds(ll, { padding: [40, 40], maxZoom: 13 })
-  }, [points])
+    if (ll.length && (!onAddRef.current || (fitOnLoad && !fitted.current))) {
+      map.current.fitBounds(ll, { padding: [40, 40], maxZoom: 13, animate: false })
+      fitted.current = true
+    }
+  }, [points, fitOnLoad])
 
   return <div ref={el} className="map" style={{ height }} />
 }

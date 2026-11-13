@@ -1,16 +1,38 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../lib/api.js'
+import { useAuth } from '../lib/auth.jsx'
 import { fileToDataUrl } from '../lib/image.js'
 import MapView from '../components/MapView.jsx'
 
-export default function NewRoute() {
+// Publish a new route (/routes/new) or edit an existing one (/routes/:id/edit).
+export default function RouteForm() {
+  const { id } = useParams()
+  const editing = Boolean(id)
+  const { user } = useAuth()
   const nav = useNavigate()
   const [f, setF] = useState({ title: '', destination: '', impressions: '', tips: '' })
   const [points, setPoints] = useState([])
   const [photos, setPhotos] = useState([])
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  // Edit mode: 'loading' | 'ready' | 'missing' | 'forbidden' | error message
+  const [load, setLoad] = useState(editing ? 'loading' : 'ready')
+
+  useEffect(() => {
+    if (!editing) return
+    let stale = false
+    api.getRoute(id).then((r) => {
+      if (stale) return
+      if (!r) return setLoad('missing')
+      if (r.authorId !== user.id) return setLoad('forbidden')
+      setF({ title: r.title, destination: r.destination, impressions: r.impressions, tips: r.tips })
+      setPoints(r.waypoints)
+      setPhotos(r.photos)
+      setLoad('ready')
+    }).catch((err) => { if (!stale) setLoad(err.message) })
+    return () => { stale = true }
+  }, [editing, id, user.id])
 
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value })
   const addPoint = (lat, lng) => setPoints((p) => [...p, { name: '', lat, lng }])
@@ -30,14 +52,20 @@ export default function NewRoute() {
     e.preventDefault()
     setError(''); setBusy(true)
     try {
-      const r = await api.createRoute({ ...f, waypoints: points, photos })
+      const data = { ...f, waypoints: points, photos }
+      const r = editing ? await api.updateRoute(id, data) : await api.createRoute(data)
       nav(`/routes/${r.id}`)
     } catch (err) { setError(err.message); setBusy(false) }
   }
 
+  if (load === 'loading') return <p className="empty">Зареждане…</p>
+  if (load === 'missing') return <p className="empty">Маршрутът не е намерен. <Link to="/">Към маршрутите</Link></p>
+  if (load === 'forbidden') return <p className="empty">Можете да променяте само собствените си маршрути. <Link to={`/routes/${id}`}>Към маршрута</Link></p>
+  if (load !== 'ready') return <p className="error wrap" role="alert">{load}</p>
+
   return (
     <form className="wrap form" onSubmit={submit}>
-      <h1>Публикувай маршрут</h1>
+      <h1>{editing ? 'Редактирай маршрут' : 'Публикувай маршрут'}</h1>
       <div className="row">
         <label>Заглавие<input value={f.title} onChange={set('title')} maxLength={120} required /></label>
         <label>Дестинация<input value={f.destination} onChange={set('destination')} maxLength={120} placeholder="напр. Пирин, България" required /></label>
@@ -46,7 +74,7 @@ export default function NewRoute() {
       <div>
         <h2>Маршрут на картата</h2>
         <p className="muted">Кликнете на картата, за да добавите точка. Редът на добавяне е редът на маршрута.</p>
-        <MapView points={points} onAdd={addPoint} height={360} />
+        <MapView points={points} onAdd={addPoint} height={360} fitOnLoad={editing} />
         {points.length > 0 && (
           <ol className="point-list">
             {points.map((p, i) => (
@@ -77,7 +105,12 @@ export default function NewRoute() {
       </div>
 
       {error && <p className="error" role="alert">{error}</p>}
-      <button className="btn btn-red" disabled={busy}>{busy ? 'Публикуване…' : 'Публикувай'}</button>
+      <div className="form-actions">
+        <button className="btn btn-red" disabled={busy}>
+          {editing ? (busy ? 'Запазване…' : 'Запази промените') : (busy ? 'Публикуване…' : 'Публикувай')}
+        </button>
+        {editing && <Link className="btn btn-ghost" to={`/routes/${id}`}>Отказ</Link>}
+      </div>
     </form>
   )
 }

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../lib/api.js'
 import { useAuth } from '../lib/auth.jsx'
 import MapView from '../components/MapView.jsx'
@@ -8,7 +8,11 @@ import { Stars, StarInput } from '../components/Stars.jsx'
 export default function RouteDetail() {
   const { id } = useParams()
   const { user } = useAuth()
+  const nav = useNavigate()
   const [route, setRoute] = useState(undefined)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState('')
   const [rating, setRating] = useState(0)
   const [text, setText] = useState('')
   const [error, setError] = useState('')
@@ -35,6 +39,14 @@ export default function RouteDetail() {
     } catch (err) { setError(err.message) }
   }
 
+  const remove = async () => {
+    setDeleteError(''); setDeleting(true)
+    try {
+      await api.deleteRoute(id)
+      nav('/profile', { replace: true })
+    } catch (err) { setDeleteError(err.message); setDeleting(false) }
+  }
+
   return (
     <article className="wrap detail">
       <p className="muted">{route.destination} · от {route.author} · {route.createdAt}</p>
@@ -42,6 +54,24 @@ export default function RouteDetail() {
       <div className="rating-line">
         {route.ratingCount ? <><Stars value={route.rating} /><strong>{route.rating.toFixed(1)}</strong><span className="muted">({route.ratingCount} отзива)</span></> : <span className="muted">Още без оценки</span>}
       </div>
+
+      {isOwner && (
+        <div className="owner-actions">
+          {confirmDelete ? (
+            <>
+              <span>Да изтрия ли маршрута заедно с отзивите му? Това е необратимо.</span>
+              <button type="button" className="btn btn-red" onClick={remove} disabled={deleting}>{deleting ? 'Изтриване…' : 'Да, изтрий'}</button>
+              <button type="button" className="btn btn-ghost" onClick={() => setConfirmDelete(false)} disabled={deleting}>Отказ</button>
+            </>
+          ) : (
+            <>
+              <Link className="btn btn-dark" to={`/routes/${id}/edit`}>Редактирай</Link>
+              <button type="button" className="btn btn-ghost" onClick={() => setConfirmDelete(true)}>Изтрий</button>
+            </>
+          )}
+          {deleteError && <p className="error" role="alert">{deleteError}</p>}
+        </div>
+      )}
 
       <MapView points={route.waypoints} />
 
